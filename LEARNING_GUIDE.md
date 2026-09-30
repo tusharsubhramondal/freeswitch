@@ -10,9 +10,17 @@ This guide documents the exact steps and network fixes required to connect a SIP
    - [Fix 1: Docker Desktop Port Mapping](#fix-1-docker-desktop-port-mapping)
    - [Fix 2: Setting the SIP Domain in `vars.xml`](#fix-2-setting-the-sip-domain-in-varsxml)
    - [Fix 3: Event Socket IPv4 Binding](#fix-3-event-socket-ipv4-binding)
+   - [Fix 4: RTP Port Range Lockdown](#fix-4-rtp-port-range-lockdown)
+   - [Fix 5: Docker NAT & SDP Advertising](#fix-5-docker-nat--sdp-advertising-fix-for-inbound--outbound-no-voice)
 3. [MicroSIP Configuration Guide](#3-microsip-configuration-guide)
 4. [Testing Your FreeSWITCH Connection](#4-testing-your-freeswitch-connection)
 5. [Useful Verification Commands (`fs_cli`)](#5-useful-verification-commands-fs_cli)
+6. [FreeSWITCH Core Architecture: The 3 Pillars](#6-freeswitch-core-architecture-the-3-pillars)
+7. [How Call Routing Works (Step-by-Step Call Flows)](#7-how-call-routing-works-step-by-step-call-flows)
+   - [Flow 1: Calling an Internal Extension](#flow-1-calling-an-internal-extension-eg-1000-dials-1001)
+   - [Flow 2: Calling an External Phone Number via Gateway](#flow-2-calling-an-external-phone-number-via-a-sip-trunk--gateway)
+   - [Flow 3: Receiving an Inbound Call from Outside (PSTN / DID)](#flow-3-receiving-an-inbound-call-from-outside-sip-trunk--did-number)
+8. [Quick Configuration Cheat-Sheet](#8-quick-configuration-cheat-sheet)
 
 ---
 
@@ -167,6 +175,8 @@ Once MicroSIP displays **Online**, dial these built-in test extensions:
 
 ---
 
+---
+
 ## 5. Useful Verification Commands (`fs_cli`)
 
 Open the FreeSWITCH console:
@@ -190,3 +200,145 @@ reloadxml
 # 4. Check SIP profile status:
 sofia status
 ```
+
+---
+
+## 6. FreeSWITCH Core Architecture: The 3 Pillars
+
+To understand FreeSWITCH call routing easily, think of FreeSWITCH as having **3 main pillars**:
+
+```
+ ┌───────────────────────────┐      ┌───────────────────────────┐      ┌───────────────────────────┐
+ │     1. SIP PROFILES       │      │       2. DIRECTORY        │      │       3. DIALPLAN         │
+ │  (Doors / Interfaces)     │ ───► │  (Users / Accounts)       │ ───► │  (Brain / Routing Logic)  │
+ │  conf/sip_profiles/       │      │  conf/directory/          │      │  conf/dialplan/           │
+ └───────────────────────────┘      └───────────────────────────┘      └───────────────────────────┘
+```
+
+| Component | What it is | Real-World Analogy | Key Configuration File |
+| :--- | :--- | :--- | :--- |
+| **1. SIP Profile** | Network endpoints listening on IP/Ports for SIP packets. | The **Entrance Door** to the building. | [`conf/sip_profiles/internal.xml`](file:///c:/Users/tusha/Desktop/freeswitch/conf/sip_profiles/internal.xml) (Port 5060)<br>[`conf/sip_profiles/external.xml`](file:///c:/Users/tusha/Desktop/freeswitch/conf/sip_profiles/external.xml) (Port 5080) |
+| **2. Directory** | Database of registered users, extensions, passwords, and assigned permissions. | The **Employee ID Badges** & security list. | [`conf/directory/default/1000.xml`](file:///c:/Users/tusha/Desktop/freeswitch/conf/directory/default/1000.xml) |
+| **3. Dialplan** | Ordered list of rules (conditions) and actions that decide what to do with a dialed number. | The **Phone Operator / Switchboard** routing instructions. | [`conf/dialplan/default.xml`](file:///c:/Users/tusha/Desktop/freeswitch/conf/dialplan/default.xml) (Internal)<br>[`conf/dialplan/public.xml`](file:///c:/Users/tusha/Desktop/freeswitch/conf/dialplan/public.xml) (Inbound from outside) |
+
+---
+
+## 7. How Call Routing Works (Step-by-Step Call Flows)
+
+### Flow 1: Calling an Internal Extension (e.g., `1000` dials `1001`)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Caller as MicroSIP 1 (User 1000)
+    participant Sofia as SIP Profile (internal.xml :5060)
+    participant Dir as Directory (1000.xml)
+    participant DP as Dialplan (default.xml)
+    actor Callee as MicroSIP 2 (User 1001)
+
+    Caller->>Sofia: 1. SIP INVITE (Calling 1001)
+    Sofia->>Dir: 2. Authenticate User 1000
+    Dir-->>Sofia: Authenticated! user_context = "default"
+    Sofia->>DP: 3. Route call in "default" context
+    DP->>DP: 4. Regex Match: destination_number ^(10[01][0-9])$
+    DP->>Callee: 5. Execute: <action application="bridge" data="user/1001@${domain_name}"/>
+    Callee-->>Caller: 6. 1001 Rings & Answers -> 2-Way Audio Connected!
+```
+
+#### What happens step-by-step:
+1. **SIP Arrival**: MicroSIP (User 1000) sends `INVITE sip:1001@127.0.0.1:5060`.
+2. **Authentication**: Sofia checks [`conf/directory/default/1000.xml`](file:///c:/Users/tusha/Desktop/freeswitch/conf/directory/default/1000.xml). It sees `<variable name="user_context" value="default"/>`.
+3. **Dialplan Search**: FreeSWITCH enters [`conf/dialplan/default.xml`](file:///c:/Users/tusha/Desktop/freeswitch/conf/dialplan/default.xml) and looks for a matching `<extension>`:
+   ```xml
+   <!-- Matches 1000 to 1019 -->
+   <extension name="Local_Extension">
+     <condition field="destination_number" expression="^(10[01][0-9])$">
+       <!-- Bridges the call to the registered device of user 1001 -->
+       <action application="bridge" data="user/$1@${domain_name}"/>
+     </condition>
+   </extension>
+   ```
+4. **Bridge Application**: FreeSWITCH checks if User `1001` is registered, sends an INVITE to `1001`'s softphone, and connects the audio streams.
+
+---
+
+### Flow 2: Calling an External Phone Number via a SIP Trunk / Gateway
+
+When an internal user dials an outside number (e.g., `9876543210` or a mobile number):
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Phone as MicroSIP (User 1000)
+    participant Sofia as Sofia Internal (:5060)
+    participant DP as Dialplan (default.xml)
+    participant Trunk as SIP Gateway / Trunk (:5080)
+    actor PSTN as Telecom Provider / Mobile Phone
+
+    Phone->>Sofia: 1. INVITE sip:9876543210@127.0.0.1
+    Sofia->>DP: 2. Evaluate in context "default"
+    DP->>DP: 3. Matches Outbound Regex (e.g., ^\d{10}$)
+    DP->>Trunk: 4. Execute: <action application="bridge" data="sofia/gateway/my_provider/9876543210"/>
+    Trunk->>PSTN: 5. Outbound SIP INVITE to Telecom Provider
+    PSTN-->>Phone: 6. Mobile Phone Rings & Connects!
+```
+
+#### The Outbound Dialplan Rule ([`conf/dialplan/default.xml`](file:///c:/Users/tusha/Desktop/freeswitch/conf/dialplan/default.xml)):
+```xml
+<extension name="Outbound_Calls">
+  <!-- Matches any 10-digit dialed number -->
+  <condition field="destination_number" expression="^(\d{10})$">
+    <!-- Sets your Outbound Caller ID -->
+    <action application="set" data="effective_caller_id_number=18005550199"/>
+    <!-- Bridges call to your configured SIP Trunk Gateway -->
+    <action application="bridge" data="sofia/gateway/my_sip_provider/$1"/>
+  </condition>
+</extension>
+```
+
+---
+
+### Flow 3: Receiving an Inbound Call from Outside (SIP Trunk / DID Number)
+
+When an outside caller calls your phone number from the public telephone network (PSTN):
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor Outside as Outside Caller
+    participant Trunk as External Profile (external.xml :5080)
+    participant PublicDP as Public Dialplan (public.xml)
+    participant DefaultDP as Default Dialplan (default.xml)
+    actor Agent as MicroSIP (User 1000)
+
+    Outside->>Trunk: 1. Inbound SIP INVITE to Port 5080
+    Trunk->>PublicDP: 2. Hand over to "public" context (Unauthenticated)
+    PublicDP->>PublicDP: 3. Match DID Number (e.g., 18005550199)
+    PublicDP->>DefaultDP: 4. Transfer to extension 1000 in "default" context
+    DefaultDP->>Agent: 5. Ring User 1000 Softphone
+```
+
+#### Why `public.xml` exists (Security!):
+- Calls from the outside world enter on **Port 5080** (`external.xml`), which assigns `context="public"`.
+- `public.xml` only allows routing to specific pre-approved DIDs, IVRs, or extensions. It **prevents outside callers from abusing your system** to make toll calls.
+
+---
+
+## 8. Quick Configuration Cheat-Sheet
+
+### How to Add a New User (Extension `1001`):
+1. Copy [`conf/directory/default/1000.xml`](file:///c:/Users/tusha/Desktop/freeswitch/conf/directory/default/1000.xml) to `conf/directory/default/1001.xml`.
+2. Change `id="1000"` to `id="1001"`, and change `effective_caller_id_number` to `1001`.
+3. In `fs_cli`, run `reloadxml`.
+4. Configure softphone 2 with User `1001`, Domain `127.0.0.1`, Password `1234`.
+
+### Key Dialplan Applications:
+| Application | What it does | Example |
+| :--- | :--- | :--- |
+| **`answer`** | Answers the incoming call immediately (sends SIP 200 OK). | `<action application="answer"/>` |
+| **`bridge`** | Connects the caller to another destination (phone, trunk, user). | `<action application="bridge" data="user/1001@${domain}"/>` |
+| **`playback`** | Plays a `.wav` sound file to the caller. | `<action application="playback" data="ivr/ivr-welcome.wav"/>` |
+| **`echo`** | Echoes audio back to the caller (test tool). | `<action application="echo"/>` |
+| **`sleep`** | Pauses execution for $N$ milliseconds. | `<action application="sleep" data="2000"/>` |
+| **`transfer`** | Sends the call to another extension or context in the dialplan. | `<action application="transfer" data="1000 XML default"/>` |
+| **`hangup`** | Terminates the call. | `<action application="hangup"/>` |
