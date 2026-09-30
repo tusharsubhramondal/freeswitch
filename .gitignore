@@ -1,13 +1,15 @@
-# Docker Volume Directories
-src/
-conf/
+# FreeSWITCH Runtime & Storage Folders
 logs/
 sounds/
 recordings/
 db/
 storage/
+src/
 
-# System and IDE files
+# Security - Do not commit private TLS certificates / keys
+conf/tls/
+
+# System & Editor files
 .DS_Store
 Thumbs.db
 *.log
