@@ -14,7 +14,7 @@ This guide documents the exact steps and network fixes required to connect a SIP
    - [Fix 5: Docker NAT & SDP Advertising](#fix-5-docker-nat--sdp-advertising-fix-for-inbound--outbound-no-voice)
 3. [MicroSIP Configuration Guide](#3-microsip-configuration-guide)
 4. [Testing Your FreeSWITCH Connection](#4-testing-your-freeswitch-connection)
-5. [Useful Verification Commands (`fs_cli`)](#5-useful-verification-commands-fs_cli)
+5. [Reloading Configurations & Useful CLI Commands](#5-reloading-configurations--useful-cli-commands)
 6. [FreeSWITCH Core Architecture: The 3 Pillars](#6-freeswitch-core-architecture-the-3-pillars)
 7. [How Call Routing Works (Step-by-Step Call Flows)](#7-how-call-routing-works-step-by-step-call-flows)
    - [Flow 1: Calling an Internal Extension](#flow-1-calling-an-internal-extension-eg-1000-dials-1001)
@@ -175,9 +175,23 @@ Once MicroSIP displays **Online**, dial these built-in test extensions:
 
 ---
 
+## 5. Reloading Configurations & Useful CLI Commands
+
+### When and How to Apply Changes (`reloadxml` vs Restarts)
+
+Whenever you modify an XML configuration file, use this table to know exactly what to reload:
+
+| What File You Modified | Command to Run | What it Does |
+| :--- | :--- | :--- |
+| **Dialplans** (`default.xml`, `public.xml`) | `reloadxml` | Immediately updates routing rules in memory without dropping calls. |
+| **Users / Directory** (`1000.xml`, `1001.xml`, passwords) | `reloadxml` | Updates user credentials and extension settings. |
+| **SIP Profiles & Gateways** (`internal.xml`, `external.xml`) | `reloadxml`<br>then `sofia profile internal restart` | Re-initializes SIP sockets, NAT settings, and SIP credentials. |
+| **ACL Network Lists** (`acl.conf.xml`) | `reloadxml`<br>then `reloadacl` | Rebuilds IP access control allow/deny tables in memory. |
+| **Core Switch Settings** (`switch.conf.xml`, RTP port ranges) | `docker restart freeswitch-learning` | Full server restart required for low-level core engine parameters. |
+
 ---
 
-## 5. Useful Verification Commands (`fs_cli`)
+### Useful CLI Commands in `fs_cli`
 
 Open the FreeSWITCH console:
 ```bash
@@ -187,18 +201,34 @@ docker exec -it freeswitch-learning fs_cli
 Inside `fs_cli`:
 
 ```text
-# 1. Verify softphone registration:
-show registrations
+# 1. Reload configurations:
+reloadxml                                # Reloads XML dialplans and user directory
+reloadacl                                # Reloads ACL IP lists
+sofia profile internal restart           # Restarts the internal SIP profile
 
-# 2. View active SIP channels and live calls:
-show channels
-show calls
+# 2. View softphone registrations:
+show registrations                       # Lists all connected softphones (IP, user, port)
 
-# 3. Reload XML configs after editing files:
-reloadxml
+# 3. View live channels and active calls:
+show channels                            # Shows live channels
+show calls                               # Shows active connected calls
 
-# 4. Check SIP profile status:
-sofia status
+# 4. Check SIP profile status & SIP debugging:
+sofia status                             # Overall Sofia status
+sofia status profile internal            # Details on internal IP, port, codecs, NAT
+sofia profile internal siptrace on       # Turns on live SIP packet logging
+sofia profile internal siptrace off      # Turns off SIP packet logging
+
+# 5. Live log levels:
+log 7                                    # Debug level (maximum detail)
+log 6                                    # Info level (clean standard logs)
+log 0                                    # Mutes console logs
+```
+
+#### Running Commands Directly from Windows PowerShell:
+```powershell
+docker exec freeswitch-learning /usr/local/freeswitch/bin/fs_cli -x "reloadxml"
+docker exec freeswitch-learning /usr/local/freeswitch/bin/fs_cli -x "sofia profile internal restart"
 ```
 
 ---
