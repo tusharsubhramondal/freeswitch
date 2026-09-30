@@ -22,19 +22,17 @@ This repository provides a production-ready baseline to build and run FreeSWITCH
 ```text
 ├── Dockerfile                    # Docker build recipe containing system & build dependencies
 ├── docker-compose.yml            # Compose configuration with port mappings and volume sync
-├── learning/                     # 📚 Complete FreeSWITCH Step-by-Step Learning Guide
-│   ├── README.md                 # Master Roadmap & Index
-│   ├── 00_voip_fundamentals_sip_rtp_udp.md
-│   ├── 01_installation_and_docker.md
-│   ├── 02_softphone_and_nat_troubleshoot.md
-│   ├── 03_cli_commands_and_reloads.md
-│   ├── 04_core_architecture_3_pillars.md
-│   ├── 05_call_routing_and_flows.md
-│   └── 06_dialplan_deep_dive.md
-├── DOCKERFILE_DEPENDENCIES.md    # Detailed description of every installed package & library
-├── INSTALLATION_GUIDE.md         # Comprehensive end-to-end FreeSWITCH build & installation guide
-├── MANUAL_INSTALLATION.md        # Step-by-step manual build instructions for Debian 12
-└── README.md                     # Project overview and quick start guide
+├── INSTALLATION_GUIDE.md         # 🛠️ Complete FreeSWITCH build & installation guide (Docker & Native)
+├── README.md                     # 📌 Project overview and quick start guide
+└── learning/                     # 📚 Modular FreeSWITCH Learning Chapters (00–06)
+    ├── README.md                 # Master Roadmap & Index
+    ├── 00_voip_fundamentals_sip_rtp_udp.md
+    ├── 01_installation_and_docker.md
+    ├── 02_softphone_and_nat_troubleshoot.md
+    ├── 03_cli_commands_and_reloads.md
+    ├── 04_core_architecture_3_pillars.md
+    ├── 05_call_routing_and_flows.md
+    └── 06_dialplan_deep_dive.md
 ```
 
 ---
