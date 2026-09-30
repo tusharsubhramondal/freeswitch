@@ -84,6 +84,47 @@ In [`conf/autoload_configs/event_socket.conf.xml`](file:///c:/Users/tusha/Deskto
 
 ---
 
+### Fix 4: RTP Port Range Lockdown
+In [`conf/autoload_configs/switch.conf.xml`](file:///c:/Users/tusha/Desktop/freeswitch/conf/autoload_configs/switch.conf.xml), restrict FreeSWITCH to only allocate RTP ports that match Docker's published UDP range (`16384-16484`):
+
+```xml
+<param name="rtp-start-port" value="16384"/>
+<param name="rtp-end-port" value="16484"/>
+```
+
+---
+
+### Fix 5: Docker NAT & SDP Advertising (Fix for Inbound & Outbound "No Voice")
+When FreeSWITCH runs inside Docker on Windows:
+- **Outbound calls (`originate`)** require setting `external_rtp_ip=127.0.0.1` and `NDLB-force-rport`.
+- **Inbound calls (dialing `9196` from MicroSIP)** require overriding `local-network-acl` so FreeSWITCH does not falsely classify host RFC1918 IPs as internal container LAN (`172.19.0.x`).
+
+1. In [`conf/vars.xml`](file:///c:/Users/tusha/Desktop/freeswitch/conf/vars.xml):
+   ```xml
+   <X-PRE-PROCESS cmd="set" data="external_rtp_ip=127.0.0.1"/>
+   <X-PRE-PROCESS cmd="set" data="external_sip_ip=127.0.0.1"/>
+   ```
+
+2. In [`conf/autoload_configs/acl.conf.xml`](file:///c:/Users/tusha/Desktop/freeswitch/conf/autoload_configs/acl.conf.xml):
+   ```xml
+   <!-- Deny localnet classification so all host traffic receives 127.0.0.1 in SDP -->
+   <list name="localnet" default="deny">
+   </list>
+   ```
+
+3. In [`conf/sip_profiles/internal.xml`](file:///c:/Users/tusha/Desktop/freeswitch/conf/sip_profiles/internal.xml):
+   ```xml
+   <!-- Disable default nat.auto and point local-network-acl to our deny list -->
+   <!-- <param name="apply-nat-acl" value="nat.auto"/> -->
+   <param name="local-network-acl" value="localnet"/>
+   <param name="aggressive-nat-detection" value="true"/>
+   <param name="NDLB-force-rport" value="true"/>
+   <param name="ext-rtp-ip" value="$${external_rtp_ip}"/>
+   <param name="ext-sip-ip" value="$${external_sip_ip}"/>
+   ```
+
+---
+
 ## 3. MicroSIP Configuration Guide
 
 Open **MicroSIP**, click the top-right menu **▼** ➡️ **Add Account**, and configure:
