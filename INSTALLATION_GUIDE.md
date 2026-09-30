@@ -12,10 +12,10 @@ A complete, step-by-step guide to installing, building, and running FreeSWITCH o
    - [Step 2: Build SignalWire Dependencies (`libks` & `sofia-sip`)](#step-2-build-signalwire-dependencies-libks--sofia-sip)
    - [Step 3: Build & Install `spandsp`](#step-3-build--install-spandsp)
    - [Step 4: Download & Build FreeSWITCH](#step-4-download--build-freeswitch)
-   - [Step 5: Install Sound Prompts & Music on Hold (MOH)](#step-5-install-sound-prompts--music-on-hold-moh)
+   - [Step 5: Install Configurations, Sound Prompts & MOH](#step-5-install-configurations-sound-prompts--moh)
    - [Step 6: User Permissions & Systemd Service](#step-6-user-permissions--systemd-service)
 4. [Dockerized Setup (Recommended)](#4-dockerized-setup-recommended)
-   - [Complete Dockerfile](#complete-dockerfile)
+   - [Docker Volume Strategy & Windows NTFS Gotcha](#docker-volume-strategy--windows-ntfs-gotcha)
    - [Docker Compose Configuration](#docker-compose-configuration)
    - [Building & Running with Docker](#building--running-with-docker)
 5. [Basic Verification & CLI Usage](#5-basic-verification--cli-usage)
@@ -29,7 +29,7 @@ FreeSWITCH is a modular, scalable open-source telephony platform supporting WebR
 
 ### System Requirements:
 - **OS**: Debian 12 (Bookworm) / Ubuntu 22.04+ (or Docker Engine)
-- **CPU**: 2+ Cores (4+ Cores recommended for media transcoding / compilation)
+- **CPU**: 2+ Cores (4+ Cores recommended for parallel compilation)
 - **RAM**: 2 GB Minimum (4 GB+ recommended during compilation)
 - **Disk Space**: At least 10 GB free space
 
@@ -42,12 +42,19 @@ FreeSWITCH requires core build tools, cryptographic libraries, database drivers,
 ```bash
 apt-get update && apt-get install -y \
     git \
+    wget \
+    curl \
+    sudo \
+    nano \
+    vim \
+    ca-certificates \
+    gnupg \
     build-essential \
+    pkg-config \
     autoconf \
     automake \
     libtool \
     libtool-bin \
-    pkg-config \
     cmake \
     nasm \
     yasm \
@@ -73,7 +80,9 @@ apt-get update && apt-get install -y \
     zlib1g-dev \
     libtiff-dev \
     libogg-dev \
-    libvorbis-dev
+    libvorbis-dev \
+    libvpx-dev \
+    libpq-dev
 ```
 
 ---
@@ -81,7 +90,7 @@ apt-get update && apt-get install -y \
 ## 3. Step-by-Step Native Build (Debian 12)
 
 ### Step 1: Install System Dependencies
-Update system packages and install all the prerequisites listed above.
+Update system packages and install all prerequisites:
 
 ```bash
 sudo apt-get update && sudo apt-get upgrade -y
@@ -90,7 +99,8 @@ sudo apt-get install -y \
     nasm yasm uuid-dev libpcre3-dev libssl-dev libcurl4-openssl-dev libspeexdsp-dev libedit-dev \
     libsqlite3-dev libldns-dev libsndfile1-dev libopus-dev libmpg123-dev \
     libshout3-dev libmp3lame-dev libavformat-dev libswscale-dev libavutil-dev \
-    libswresample-dev liblua5.4-dev libjpeg-dev zlib1g-dev libtiff-dev libogg-dev libvorbis-dev
+    libswresample-dev liblua5.4-dev libjpeg-dev zlib1g-dev libtiff-dev libogg-dev libvorbis-dev \
+    libvpx-dev libpq-dev
 ```
 
 ---
@@ -99,7 +109,7 @@ sudo apt-get install -y \
 
 Modern FreeSWITCH versions require SignalWire's `libks` (foundational C library) and `sofia-sip` (SIP signaling stack).
 
-#### 2.1 Build `libks`
+#### 2.1 Build & Install `libks`
 ```bash
 cd /usr/src
 sudo git clone https://github.com/signalwire/libks.git
@@ -110,7 +120,7 @@ sudo make install
 sudo ldconfig
 ```
 
-#### 2.2 Build `sofia-sip`
+#### 2.2 Build & Install `sofia-sip`
 ```bash
 cd /usr/src
 sudo git clone https://github.com/freeswitch/sofia-sip.git
@@ -124,8 +134,7 @@ sudo ldconfig
 
 ---
 
-### Step 3: Build & Install `spandsp`
-Required for DSP, tones, and T.38 / Fax processing (`mod_spandsp`).
+### Step 3: Build & Install `spandsp` (DSP / Fax Library)
 
 ```bash
 cd /usr/src
@@ -151,24 +160,27 @@ cd freeswitch
 
 #### 4.2 Bootstrap & Configure Modules
 ```bash
-# Export library paths
-export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+# Export library paths (including multiarch path for Debian 12)
+export PKG_CONFIG_PATH=/usr/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH
 
 # Generate build scripts
 sudo ./bootstrap.sh -j
 
-# Disable mod_signalwire (avoids signalwire-c dependency)
+# Adjust modules.conf for clean Debian 12 build:
 sudo sed -i 's|applications/mod_signalwire|#applications/mod_signalwire|g' modules.conf
+sudo sed -i 's|applications/mod_spandsp|#applications/mod_spandsp|g' modules.conf
+sudo sed -i 's|databases/mod_pgsql|#databases/mod_pgsql|g' modules.conf
 
-# Configure the build
+# Configure FreeSWITCH build
 sudo ./configure --prefix=/usr/local/freeswitch \
                  --enable-core-pgsql-support=no \
-                 --with-openssl
+                 --with-openssl \
+                 --disable-libvpx
 ```
 
 #### 4.3 Compile & Install
 ```bash
-# Compile using all available CPU cores
+# Compile using all available CPU cores in parallel
 sudo make -j$(nproc)
 
 # Install binaries to /usr/local/freeswitch
@@ -177,11 +189,15 @@ sudo make install
 
 ---
 
-### Step 5: Install Sound Prompts & Music on Hold (MOH)
-FreeSWITCH includes automated targets to download standard voice prompts and audio:
+### Step 5: Install Configurations, Sound Prompts & MOH
 
 ```bash
 cd /usr/src/freeswitch
+
+# Install standard XML dialplans and configuration
+sudo make samples-conf
+
+# Install HD audio sound prompts (Callie) & Music on Hold (MOH)
 sudo make cd-sounds-install
 sudo make cd-moh-install
 ```
@@ -237,178 +253,66 @@ sudo systemctl start freeswitch
 
 ## 4. Dockerized Setup (Recommended)
 
-Docker provides an isolated, reproducible container without polluting your host operating system.
+### Docker Volume Strategy & Windows NTFS Gotcha
 
-### Complete Dockerfile
-Save as `Dockerfile`:
-
-```dockerfile
-FROM debian:12-slim
-
-ENV DEBIAN_FRONTEND=noninteractive
-
-# 1. Install prerequisites
-RUN apt-get update && apt-get install -y \
-    git \
-    wget \
-    curl \
-    sudo \
-    nano \
-    vim \
-    ca-certificates \
-    gnupg \
-    build-essential \
-    pkg-config \
-    autoconf \
-    automake \
-    libtool \
-    libtool-bin \
-    cmake \
-    libssl-dev \
-    libcurl4-openssl-dev \
-    libpcre2-dev \
-    libspeexdsp-dev \
-    libedit-dev \
-    libsqlite3-dev \
-    libldns-dev \
-    libsndfile1-dev \
-    libopus-dev \
-    libmpg123-dev \
-    libshout3-dev \
-    libmp3lame-dev \
-    libavformat-dev \
-    libswscale-dev \
-    libavutil-dev \
-    libswresample-dev \
-    liblua5.4-dev \
-    libjpeg-dev \
-    zlib1g-dev \
-    libtiff-dev \
-    libogg-dev \
-    libvorbis-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# 2. Build libks
-WORKDIR /usr/src
-RUN git clone https://github.com/signalwire/libks.git && \
-    cd libks && \
-    cmake . -DCMAKE_INSTALL_PREFIX=/usr -DWITH_LIBATOMIC=ON && \
-    make -j$(nproc) && \
-    make install
-
-# 3. Build sofia-sip
-WORKDIR /usr/src
-RUN git clone https://github.com/freeswitch/sofia-sip.git && \
-    cd sofia-sip && \
-    ./bootstrap.sh && \
-    ./configure --prefix=/usr && \
-    make -j$(nproc) && \
-    make install
-
-# 4. Build spandsp
-WORKDIR /usr/src
-RUN git clone https://github.com/freeswitch/spandsp.git && \
-    cd spandsp && \
-    ./bootstrap.sh && \
-    ./configure --prefix=/usr && \
-    make -j$(nproc) && \
-    make install && \
-    ldconfig
-
-# 5. Build FreeSWITCH
-WORKDIR /usr/src
-RUN git clone -b v1.10 https://github.com/signalwire/freeswitch.git && \
-    cd freeswitch && \
-    ./bootstrap.sh -j && \
-    ./configure --prefix=/usr/local/freeswitch --enable-core-pgsql-support=no --with-openssl && \
-    make -j$(nproc) && \
-    make install && \
-    make cd-sounds-install && \
-    make cd-moh-install
-
-# 6. Setup Path & Environment
-ENV PATH="/usr/local/freeswitch/bin:${PATH}"
-
-WORKDIR /usr/local/freeswitch
-
-EXPOSE 5060/tcp 5060/udp 5080/tcp 5080/udp 8021/tcp 16384-32768/udp
-
-CMD ["freeswitch", "-nonat", "-c"]
-```
-
----
-
-### Docker Compose Configuration
-Save as `docker-compose.yml`:
-
-```yaml
-services:
-  freeswitch:
-    image: my-freeswitch-image:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: freeswitch-learning
-    network_mode: host
-    restart: unless-stopped
-    tty: true
-    stdin_open: true
-```
-
----
-
-### Building & Running with Docker
+> [!IMPORTANT]
+> When running Docker on Windows, compiling thousands of C files directly inside a Windows bind-mounted folder (`./src:/usr/src`) causes file-locking delays and permission errors on `mv` operations.
+> 
+> **Best Practice**: Copy source code to the container's native Linux filesystem (`/build/freeswitch`) for compilation, while keeping `./conf`, `./sounds`, `./logs`, and `./db` mounted to your host.
 
 ```bash
-# 1. Build the Docker image
-docker compose build
-
-# 2. Run container in detached mode
-docker compose up -d
-
-# 3. Check logs
-docker compose logs -f
-
-# 4. Access FreeSWITCH CLI inside the container
-docker exec -it freeswitch-learning fs_cli
+# Inside running container:
+mkdir -p /build
+cp -a /usr/src/freeswitch /build/
+cd /build/freeswitch
+./configure --prefix=/usr/local/freeswitch --enable-core-pgsql-support=no --with-openssl --disable-libvpx
+make -j$(nproc)
+make install
+make samples-conf
+make cd-sounds-install cd-moh-install
 ```
+
+### Docker Compose Configuration
+See [`docker-compose.yml`](file:///c:/Users/tusha/Desktop/freeswitch/docker-compose.yml) for full container definition with persistent host volumes.
 
 ---
 
 ## 5. Basic Verification & CLI Usage
 
-### Accessing FreeSWITCH Console
-Run `fs_cli` to enter the interactive console:
 ```bash
+# Connect to FreeSWITCH CLI
 fs_cli
-```
 
-### Useful CLI Commands:
-| Command | Action |
-| :--- | :--- |
-| `status` | Shows server uptime, current sessions, and CPU load. |
-| `sofia status` | Lists active SIP profiles (e.g. `internal`, `external`). |
-| `sofia status profile internal` | Detailed view of internal SIP profile (port 5060). |
-| `show channels` | Shows active active calls / channels. |
-| `reloadxml` | Reloads XML configuration (dialplans, directory, profiles) without restart. |
-| `version` | Displays compiled FreeSWITCH version. |
-| `...` or `exit` / `quit` | Exits `fs_cli`. |
+# Check system status
+status
+
+# Check SIP profiles
+sofia status
+
+# Reload XML configuration after dialplan edits
+reloadxml
+
+# Show registrations & channels
+show registrations
+show channels
+```
 
 ---
 
 ## 6. Troubleshooting & Common Errors
 
-### 1. `sofia-sip` or `libks` not found during `./configure`
-Ensure you ran `sudo ldconfig` after installing `libks` and `sofia-sip`. Also check `pkg-config --modversion sofia-sip-ua`.
+1. **`make[800]: Entering directory ...` (Recursive Make Loop)**
+   - *Cause*: Running `make install` before running `make -j$(nproc)` causes `src/mod/Makefile` to loop infinitely looking for `libs/apr/config.status`.
+   - *Fix*: Stop the build with `Ctrl+C`, run `make -j$(nproc)` first, and only then run `make install`.
 
-### 2. Port Conflicts (5060 / 5080)
-If FreeSWITCH fails to bind to port 5060, check if another service (like Asterisk or an existing FreeSWITCH instance) is using the port:
-```bash
-sudo netstat -tulpn | grep -E '5060|5080'
-```
+2. **`vpx_scale/generic/vpx_scale.c.o Error 1`**
+   - *Cause*: Older bundled `libvpx` is incompatible with newer GCC 12/13 on Debian 12.
+   - *Fix*: Install `libvpx-dev` and pass `--disable-libvpx` to `./configure`.
 
-### 3. File Permissions
-If FreeSWITCH cannot write logs or read recordings:
-```bash
-sudo chown -R freeswitch:freeswitch /usr/local/freeswitch
-```
+3. **`You must install libpq-dev to build mod_pgsql`**
+   - *Cause*: `mod_pgsql` is enabled by default in `modules.conf`.
+   - *Fix*: Run `apt-get install -y libpq-dev` or comment out `databases/mod_pgsql` in `modules.conf`.
+
+4. **`v18_init: too few arguments` in `mod_spandsp`**
+   - *Cause*: API function signature change in the latest upstream SpanDSP repository.
+   - *Fix*: Comment out `applications/mod_spandsp` in `modules.conf`.

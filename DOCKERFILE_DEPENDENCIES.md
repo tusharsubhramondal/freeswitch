@@ -81,6 +81,8 @@ These packages provide video transcoding, image formatting, scaling, and video c
 | **`libswresample-dev`** | FFmpeg audio resampling and rematrixing library. | Handles audio sample rate conversion, channel layout adaptation, and format conversion in multimedia pipelines. |
 | **`libjpeg-dev`** | Independent JPEG Group's JPEG runtime and header library. | Used for video snapshot generation, video layout avatar rendering, and conference video stills. |
 | **`libtiff-dev`** | Tag Image File Format (TIFF) library. | Required for Fax over IP (T.38 / `mod_spandsp`) for converting incoming and outgoing faxes to/from TIFF images. |
+| **`libvpx-dev`** | VP8 and VP9 video codec development headers. | Modern system video codec library replacing the ancient embedded libvpx for video calls and WebRTC. |
+| **`libpq-dev`** | PostgreSQL client development libraries and headers. | Required if building `mod_pgsql` for PostgreSQL database integration. |
 | **`zlib1g-dev`** | General compression library. | Provides data compression for network packets, media streams, and internal data structures. |
 
 ---

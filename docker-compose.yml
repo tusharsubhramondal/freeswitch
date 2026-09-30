@@ -11,3 +11,26 @@ services:
 
     tty: true
     stdin_open: true
+    restart: unless-stopped
+
+    volumes:
+      # Source code directory (preserves cloned repositories and builds)
+      - ./src:/usr/src
+
+      # FreeSWITCH configuration directory (XML dialplans, SIP profiles, users)
+      - ./conf:/usr/local/freeswitch/conf
+
+      # Log files (freeswitch.log)
+      - ./logs:/usr/local/freeswitch/log
+
+      # Audio prompts & Music on Hold (MOH)
+      - ./sounds:/usr/local/freeswitch/sounds
+
+      # Call recordings
+      - ./recordings:/usr/local/freeswitch/recordings
+
+      # SQLite database & state storage (call registrations, channel states)
+      - ./db:/usr/local/freeswitch/db
+
+      # Voicemail and runtime storage
+      - ./storage:/usr/local/freeswitch/storage

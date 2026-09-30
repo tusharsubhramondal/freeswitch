@@ -43,5 +43,7 @@ RUN apt-get update && \
     libtiff-dev \
     libogg-dev \
     libvorbis-dev \
+    libvpx-dev \
+    libpq-dev \
     && \
     rm -rf /var/lib/apt/lists/*

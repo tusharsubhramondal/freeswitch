@@ -22,7 +22,7 @@ This document provides a complete, step-by-step manual installation guide for co
 
 ## 1. Quick All-in-One Script
 
-If you want to run the entire manual installation sequence automatically, copy and paste this entire block into your terminal as `root`:
+Copy and paste this entire block into your terminal as `root`:
 
 ```bash
 #!/bin/bash
@@ -69,9 +69,11 @@ apt-get update && apt-get install -y \
     zlib1g-dev \
     libtiff-dev \
     libogg-dev \
-    libvorbis-dev
+    libvorbis-dev \
+    libvpx-dev \
+    libpq-dev
 
-export PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
+export PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH"
 
 echo "=== 2. Building libks ==="
 cd /usr/src
@@ -111,14 +113,24 @@ rm -rf freeswitch
 git clone -b v1.10 https://github.com/signalwire/freeswitch.git
 cd freeswitch
 ./bootstrap.sh -j
+
+# Adjust module list for clean Debian 12 compilation
 sed -i 's|applications/mod_signalwire|#applications/mod_signalwire|g' modules.conf
-./configure --prefix=/usr/local/freeswitch --enable-core-pgsql-support=no --with-openssl
+sed -i 's|applications/mod_spandsp|#applications/mod_spandsp|g' modules.conf
+sed -i 's|databases/mod_pgsql|#databases/mod_pgsql|g' modules.conf
+
+./configure --prefix=/usr/local/freeswitch \
+            --enable-core-pgsql-support=no \
+            --with-openssl \
+            --disable-libvpx
+
 make -j$(nproc)
 make install
+make samples-conf
 make cd-sounds-install
 make cd-moh-install
 
-echo "=== 6. Setting up symlinks ==="
+echo "=== 6. Setting Up CLI Symlinks ==="
 ln -sf /usr/local/freeswitch/bin/freeswitch /usr/bin/freeswitch
 ln -sf /usr/local/freeswitch/bin/fs_cli /usr/bin/fs_cli
 
@@ -129,31 +141,19 @@ echo "=== Installation Completed Successfully! ==="
 
 ## 2. Step-by-Step Walkthrough
 
-If you prefer to run and understand each command individually, follow these steps:
-
 ### Step 1: Update & Install Prerequisites
-Install all essential build tools, compilers, assemblers, and media codec libraries:
-
 ```bash
 apt-get update && apt-get upgrade -y
 apt-get install -y \
     git build-essential autoconf automake libtool libtool-bin pkg-config cmake \
-    nasm yasm uuid-dev libpcre3-dev libssl-dev libcurl4-openssl-dev libspeexdsp-dev \
-    libedit-dev libsqlite3-dev libldns-dev libsndfile1-dev libopus-dev libmpg123-dev \
+    nasm yasm uuid-dev libpcre3-dev libssl-dev libcurl4-openssl-dev libspeexdsp-dev libedit-dev \
+    libsqlite3-dev libldns-dev libsndfile1-dev libopus-dev libmpg123-dev \
     libshout3-dev libmp3lame-dev libavformat-dev libswscale-dev libavutil-dev \
-    libswresample-dev liblua5.4-dev libjpeg-dev zlib1g-dev libtiff-dev libogg-dev libvorbis-dev
+    libswresample-dev liblua5.4-dev libjpeg-dev zlib1g-dev libtiff-dev libogg-dev libvorbis-dev \
+    libvpx-dev libpq-dev
 ```
-
-Set the package configuration path:
-```bash
-export PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH"
-```
-
----
 
 ### Step 2: Build & Install `libks`
-`libks` is SignalWire’s foundational cross-platform C utility library.
-
 ```bash
 cd /usr/src
 git clone https://github.com/signalwire/libks.git
@@ -164,11 +164,7 @@ make install
 ldconfig
 ```
 
----
-
 ### Step 3: Build & Install `sofia-sip`
-`sofia-sip` provides the RFC-compliant SIP signaling stack used by `mod_sofia`.
-
 ```bash
 cd /usr/src
 git clone https://github.com/freeswitch/sofia-sip.git
@@ -180,11 +176,7 @@ make install
 ldconfig
 ```
 
----
-
 ### Step 4: Build & Install `spandsp`
-`spandsp` provides DSP functions, tone detection, and T.30/T.38 Fax capabilities.
-
 ```bash
 cd /usr/src
 git clone https://github.com/freeswitch/spandsp.git
@@ -196,140 +188,71 @@ make install
 ldconfig
 ```
 
----
-
 ### Step 5: Download & Compile FreeSWITCH
-
-#### 5.1 Clone FreeSWITCH v1.10
 ```bash
 cd /usr/src
 git clone -b v1.10 https://github.com/signalwire/freeswitch.git
 cd freeswitch
-```
 
-#### 5.2 Bootstrap Build Scripts
-```bash
+export PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig:$PKG_CONFIG_PATH"
+
 ./bootstrap.sh -j
-```
 
-#### 5.3 Disable unnecessary modules (e.g. `mod_signalwire`)
-To avoid extra external cloud dependencies, comment out `mod_signalwire` in `modules.conf`:
-```bash
 sed -i 's|applications/mod_signalwire|#applications/mod_signalwire|g' modules.conf
-```
+sed -i 's|applications/mod_spandsp|#applications/mod_spandsp|g' modules.conf
+sed -i 's|databases/mod_pgsql|#databases/mod_pgsql|g' modules.conf
 
-#### 5.4 Configure
-```bash
 ./configure --prefix=/usr/local/freeswitch \
             --enable-core-pgsql-support=no \
-            --with-openssl
-```
+            --with-openssl \
+            --disable-libvpx
 
-#### 5.5 Compile & Install
-```bash
 make -j$(nproc)
 make install
 ```
 
----
-
 ### Step 6: Install Sounds & Music-on-Hold (MOH)
-Download and install default 8kHz/16kHz/32kHz/48kHz sound prompts and hold music:
-
 ```bash
-cd /usr/src/freeswitch
+make samples-conf
 make cd-sounds-install
 make cd-moh-install
 ```
 
----
-
 ### Step 7: System Paths & Permissions
-
-#### Create Symlinks for easy global access:
-```bash
-ln -sf /usr/local/freeswitch/bin/freeswitch /usr/bin/freeswitch
-ln -sf /usr/local/freeswitch/bin/fs_cli /usr/bin/fs_cli
-```
-
-#### (Optional) Create a dedicated non-root user:
 ```bash
 groupadd freeswitch
-useradd -r -g freeswitch -s /bin/false -d /usr/local/freeswitch freeswitch
+useradd -r -g freeswitch -s /bin/false -c "FreeSWITCH Telephony Server" -d /usr/local/freeswitch freeswitch
 chown -R freeswitch:freeswitch /usr/local/freeswitch
 chmod -R u=rwx,g=rx /usr/local/freeswitch
+
+ln -sf /usr/local/freeswitch/bin/freeswitch /usr/bin/freeswitch
+ln -sf /usr/local/freeswitch/bin/fs_cli /usr/bin/fs_cli
 ```
 
 ---
 
 ## 3. Starting & Verifying FreeSWITCH
 
-### Run in Foreground (Console Mode)
-To start FreeSWITCH interactively and see live logs:
+### Start in Background:
 ```bash
-freeswitch -nonat -c
+freeswitch -nc
 ```
 
-### Run in Background (Daemon Mode)
-```bash
-freeswitch -nonat -nc
-```
-
-### Connect to CLI Console
-Once running in the background, connect to it using:
+### Connect to CLI:
 ```bash
 fs_cli
 ```
-*(To exit `fs_cli`, type `/exit` or `...` and press Enter).*
-
-### Stop FreeSWITCH
-```bash
-freeswitch -stop
-```
 
 ---
 
-## 4. Creating a Systemd Service (Optional)
+## 4. Useful `fs_cli` Commands
 
-If running on a native Linux server / VM (systemd), create `/etc/systemd/system/freeswitch.service`:
-
-```ini
-[Unit]
-Description=FreeSWITCH Telephony Server
-After=syslog.target network.target local-fs.target
-
-[Service]
-Type=forking
-PIDFile=/usr/local/freeswitch/run/freeswitch.pid
-ExecStart=/usr/local/freeswitch/bin/freeswitch -ncwait -nonat
-ExecStop=/usr/local/freeswitch/bin/freeswitch -stop
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Reload and start:
-```bash
-systemctl daemon-reload
-systemctl enable freeswitch
-systemctl start freeswitch
-systemctl status freeswitch
-```
-
----
-
-## 5. Useful `fs_cli` Commands
-
-| Command | Description |
+| Command | Action |
 | :--- | :--- |
-| `status` | Shows system uptime, current sessions, CPS, and memory load. |
-| `sofia status` | Displays all SIP profiles (`internal`, `external`, etc.). |
-| `sofia status profile internal` | Detailed view of the internal SIP profile (port 5060). |
-| `sofia status profile external` | Detailed view of the external SIP profile (port 5080). |
-| `show channels` | Shows all active calls/channels. |
-| `show calls` | Shows current call routing state. |
-| `reloadxml` | Reloads all XML dialplans, directories, and configs without restarting FreeSWITCH. |
-| `version` | Displays installed FreeSWITCH version. |
-| `shutdown` | Gracefully terminates FreeSWITCH. |
+| `status` | Display system uptime, CPU usage, and session stats |
+| `sofia status` | List active SIP profiles (internal, external) |
+| `sofia status profile internal` | Detailed view of internal SIP profile (port 5060) |
+| `reloadxml` | Reload all XML configuration files and dialplans |
+| `show registrations` | Display all currently registered SIP user extensions |
+| `show channels` | List active calls / channels |
+| `fsctl shutdown` | Gracefully shut down the FreeSWITCH daemon |

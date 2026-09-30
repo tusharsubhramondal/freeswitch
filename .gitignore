@@ -1,0 +1,13 @@
+# Docker Volume Directories
+src/
+conf/
+logs/
+sounds/
+recordings/
+db/
+storage/
+
+# System and IDE files
+.DS_Store
+Thumbs.db
+*.log
