@@ -1,0 +1,13 @@
+services:
+  freeswitch:
+    image: my-freeswitch-image:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: freeswitch-learning
+
+    network_mode: host
+
+    tty: true
+    stdin_open: true
