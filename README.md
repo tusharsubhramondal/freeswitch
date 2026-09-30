@@ -65,14 +65,19 @@ docker exec -it freeswitch-learning bash
 
 ---
 
-## 📖 Documentation Index
+## 📖 Documentation & Learning Index
 
 | Document | Description |
 | :--- | :--- |
-| 📄 **[LEARNING_GUIDE.md](file:///c:/Users/tusha/Desktop/freeswitch/LEARNING_GUIDE.md)** | Step-by-step post-installation guide, network fixes, MicroSIP softphone setup, and test extensions. |
-| 📄 **[DOCKERFILE_DEPENDENCIES.md](file:///c:/Users/tusha/Desktop/freeswitch/DOCKERFILE_DEPENDENCIES.md)** | Full breakdown of every utility, build tool, codec, and database library installed in the `Dockerfile`. |
-| 📄 **[INSTALLATION_GUIDE.md](file:///c:/Users/tusha/Desktop/freeswitch/INSTALLATION_GUIDE.md)** | Comprehensive guide covering dependency compilation (`libks`, `sofia-sip`, `spandsp`), sound prompt setup, and systemd service creation. |
-| 📄 **[MANUAL_INSTALLATION.md](file:///c:/Users/tusha/Desktop/freeswitch/MANUAL_INSTALLATION.md)** | Direct CLI instructions to manually compile and install FreeSWITCH from Git source on Debian 12. |
+| 🛠️ **[INSTALLATION_GUIDE.md](file:///c:/Users/tusha/Desktop/freeswitch/INSTALLATION_GUIDE.md)** | Comprehensive build & installation guide covering Docker setup, Debian 12 native compilation, dependencies (`libks`, `sofia-sip`, `spandsp`), and systemd service creation. |
+| 📚 **[learning/README.md](file:///c:/Users/tusha/Desktop/freeswitch/learning/README.md)** | **Master Roadmap & Learning Series Index** |
+| 🎓 **[Chapter 00: VoIP Fundamentals](file:///c:/Users/tusha/Desktop/freeswitch/learning/00_voip_fundamentals_sip_rtp_udp.md)** | Core telephony theory: SIP signaling vs RTP media, why UDP is used, SDP negotiation, and audio codecs. |
+| 🐳 **[Chapter 01: Installation & Docker](file:///c:/Users/tusha/Desktop/freeswitch/learning/01_installation_and_docker.md)** | Docker networking architecture, port mapping, and host volume synchronization. |
+| 📞 **[Chapter 02: Softphone Setup & NAT Audio](file:///c:/Users/tusha/Desktop/freeswitch/learning/02_softphone_and_nat_troubleshoot.md)** | Configuring MicroSIP, understanding Docker bridge NAT, and fixing the "No Audio / 1-way voice" bug. |
+| 💻 **[Chapter 03: CLI Commands & Reload Matrix](file:///c:/Users/tusha/Desktop/freeswitch/learning/03_cli_commands_and_reloads.md)** | FreeSWITCH `fs_cli` cheat-sheet, live streaming logs, and when to use `reloadxml` vs container restarts. |
+| 🏛️ **[Chapter 04: Core Architecture (3 Pillars)](file:///c:/Users/tusha/Desktop/freeswitch/learning/04_core_architecture_3_pillars.md)** | Deep dive into SIP Profiles, Directory Users, and Dialplans with visual diagrams. |
+| 🔄 **[Chapter 05: Call Routing & Call Flows](file:///c:/Users/tusha/Desktop/freeswitch/learning/05_call_routing_and_flows.md)** | Step-by-step sequence diagrams for internal extensions, outbound trunks, and inbound DID routing. |
+| ⚙️ **[Chapter 06: Dialplan Deep Dive](file:///c:/Users/tusha/Desktop/freeswitch/learning/06_dialplan_deep_dive.md)** | Writing XML dialplans, PCRE regex pattern matching, and core applications (`bridge`, `playback`, `answer`). |
 
 ---
 
@@ -87,7 +92,7 @@ Inside the Docker environment, dependencies are grouped into the following funct
 * **Video & Images**: `libavformat-dev`, `libswscale-dev`, `libavutil-dev`, `libswresample-dev`, `libjpeg-dev`, `libtiff-dev`, `zlib1g-dev`
 * **Scripting**: `liblua5.4-dev` (`mod_lua`)
 
-> For the detailed breakdown of what each specific library does, refer to [DOCKERFILE_DEPENDENCIES.md](file:///c:/Users/tusha/Desktop/freeswitch/DOCKERFILE_DEPENDENCIES.md).
+> For the detailed build and installation instructions, refer to [INSTALLATION_GUIDE.md](file:///c:/Users/tusha/Desktop/freeswitch/INSTALLATION_GUIDE.md).
 
 ---
 
