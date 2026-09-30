@@ -277,24 +277,38 @@ See [`docker-compose.yml`](file:///c:/Users/tusha/Desktop/freeswitch/docker-comp
 
 ---
 
-## 5. Basic Verification & CLI Usage
+## 5. Server Lifecycle & CLI Usage
+
+### 5.1 Starting & Stopping FreeSWITCH
+
+| Action | Where to Run | Command |
+| :--- | :--- | :--- |
+| **Start Server** | Linux Terminal | `freeswitch -nc` |
+| **Stop Server** | Linux Terminal | `freeswitch -stop` |
+| **Stop Server** | Inside `fs_cli` | `fsctl shutdown` |
+| **Stop Server** | Windows PowerShell / CMD | `docker exec freeswitch-learning freeswitch -stop` |
+| **Restart Server** | Linux Terminal | `freeswitch -stop && freeswitch -nc` |
+| **Force Kill** | Linux Terminal | `pkill -9 -f freeswitch` |
+| **Check Process** | Linux Terminal | `ps aux \| grep freeswitch` |
+| **View Live Logs** | Linux Terminal | `tail -f /usr/local/freeswitch/var/log/freeswitch/freeswitch.log` |
+
+---
+
+### 5.2 Connecting to `fs_cli`
 
 ```bash
 # Connect to FreeSWITCH CLI
 fs_cli
 
-# Check system status
-status
-
-# Check SIP profiles
-sofia status
-
-# Reload XML configuration after dialplan edits
-reloadxml
-
-# Show registrations & channels
-show registrations
-show channels
+# Inside fs_cli:
+status                              # Check server uptime and load
+sofia status                        # List active SIP profiles (internal 5060, external 5080)
+sofia status profile internal       # Detailed view of internal SIP profile
+reloadxml                           # Reload XML configuration without restarting
+show registrations                  # List active registered softphones
+show channels                       # List active calls
+fsctl shutdown                      # Gracefully stop the FreeSWITCH server
+/bye                                # Exit fs_cli back to shell
 ```
 
 ---

@@ -83,27 +83,47 @@ Inside the Docker environment, dependencies are grouped into the following funct
 
 ---
 
-## 🛠️ Common FreeSWITCH CLI Commands
+## 🛠️ Server Lifecycle & CLI Management Commands
 
-Once FreeSWITCH is compiled and running, you can interact with the FreeSWITCH CLI:
+### 1. Starting, Stopping & Restarting FreeSWITCH
 
+| Action | Location / Shell | Command |
+| :--- | :--- | :--- |
+| **Start Server** (Background) | Inside Container Bash | `freeswitch -nc` |
+| **Stop Server** (Graceful) | Inside Container Bash | `freeswitch -stop` |
+| **Stop Server** | Inside `fs_cli` | `fsctl shutdown` |
+| **Stop Server** (From Host) | Windows PowerShell / CMD | `docker exec freeswitch-learning freeswitch -stop` |
+| **Restart Server** | Inside Container Bash | `freeswitch -stop && freeswitch -nc` |
+| **Force Kill** (Unresponsive) | Inside Container Bash | `pkill -9 -f freeswitch` |
+| **Check Process Status** | Inside Container Bash | `ps aux \| grep freeswitch` |
+| **View Live Logs** | Inside Container Bash | `tail -f /usr/local/freeswitch/var/log/freeswitch/freeswitch.log` |
+
+---
+
+### 2. Common Interactive CLI Commands (`fs_cli`)
+
+Connect to the interactive CLI:
 ```bash
-# Connect to FreeSWITCH CLI
+# Inside container
 fs_cli
 
-# Check FreeSWITCH status
-status
-
-# Check loaded SIP profiles
-sofia status
-
-# Reload XML configuration
-reloadxml
-
-# Show active channels and calls
-show channels
-show calls
+# Or from Windows host
+docker exec -it freeswitch-learning fs_cli
 ```
+
+Inside `fs_cli`, use these commands:
+
+| Command | Description |
+| :--- | :--- |
+| **`status`** | Display server uptime, memory usage, and performance stats |
+| **`sofia status`** | View all active SIP profiles (`internal`, `external`) |
+| **`sofia status profile internal`** | View details and IP bindings of the internal SIP profile (port 5060) |
+| **`reloadxml`** | Reload XML configurations & dialplans immediately without restarting |
+| **`show registrations`** | View all registered SIP softphones/extensions |
+| **`show channels`** | List active calls and channels |
+| **`show calls`** | Display active call count and details |
+| **`fsctl shutdown`** | Gracefully stop the FreeSWITCH server |
+| **`/bye`** or **`Ctrl + D`** | Exit `fs_cli` back to Linux shell (server keeps running) |
 
 ---
 

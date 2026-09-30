@@ -231,28 +231,35 @@ ln -sf /usr/local/freeswitch/bin/fs_cli /usr/bin/fs_cli
 
 ---
 
-## 3. Starting & Verifying FreeSWITCH
+## 3. Server Lifecycle & Management
 
-### Start in Background:
-```bash
-freeswitch -nc
-```
-
-### Connect to CLI:
-```bash
-fs_cli
-```
+| Action | Location / Shell | Command |
+| :--- | :--- | :--- |
+| **Start Server** | Linux Terminal | `freeswitch -nc` |
+| **Stop Server** | Linux Terminal | `freeswitch -stop` |
+| **Stop Server** | Inside `fs_cli` | `fsctl shutdown` |
+| **Stop Server** | Windows PowerShell / CMD | `docker exec freeswitch-learning freeswitch -stop` |
+| **Restart Server** | Linux Terminal | `freeswitch -stop && freeswitch -nc` |
+| **Force Kill** | Linux Terminal | `pkill -9 -f freeswitch` |
+| **Check Process** | Linux Terminal | `ps aux \| grep freeswitch` |
+| **View Live Logs** | Linux Terminal | `tail -f /usr/local/freeswitch/var/log/freeswitch/freeswitch.log` |
 
 ---
 
 ## 4. Useful `fs_cli` Commands
 
+Connect to the interactive CLI:
+```bash
+fs_cli
+```
+
 | Command | Action |
 | :--- | :--- |
 | `status` | Display system uptime, CPU usage, and session stats |
-| `sofia status` | List active SIP profiles (internal, external) |
+| `sofia status` | List active SIP profiles (internal 5060, external 5080) |
 | `sofia status profile internal` | Detailed view of internal SIP profile (port 5060) |
 | `reloadxml` | Reload all XML configuration files and dialplans |
 | `show registrations` | Display all currently registered SIP user extensions |
 | `show channels` | List active calls / channels |
 | `fsctl shutdown` | Gracefully shut down the FreeSWITCH daemon |
+| `/bye` or `Ctrl + D` | Exit `fs_cli` back to Linux shell |
