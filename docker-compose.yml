@@ -1,36 +1,45 @@
 services:
   freeswitch:
     image: my-freeswitch-image:latest
-    build:
-      context: .
-      dockerfile: Dockerfile
-
     container_name: freeswitch-learning
 
-    network_mode: host
+    ports:
+      # SIP Signaling (Internal - Port 5060 for Softphones)
+      - "5060:5060/tcp"
+      - "5060:5060/udp"
+
+      # SIP Signaling (External / Trunks - Port 5080)
+      - "5080:5080/tcp"
+      - "5080:5080/udp"
+
+      # Event Socket Layer (fs_cli - Port 8021)
+      - "8021:8021/tcp"
+
+      # RTP Audio/Video Media Ports Range
+      - "16384-16484:16384-16484/udp"
 
     tty: true
     stdin_open: true
     restart: unless-stopped
 
     volumes:
-      # Source code directory (preserves cloned repositories and builds)
-      - ./src:/usr/src
-
       # FreeSWITCH configuration directory (XML dialplans, SIP profiles, users)
-      - ./conf:/usr/local/freeswitch/conf
+      - ./conf:/usr/local/freeswitch/etc/freeswitch
 
       # Log files (freeswitch.log)
-      - ./logs:/usr/local/freeswitch/log
+      - ./logs:/usr/local/freeswitch/var/log/freeswitch
 
       # Audio prompts & Music on Hold (MOH)
-      - ./sounds:/usr/local/freeswitch/sounds
+      - ./sounds:/usr/local/freeswitch/share/freeswitch/sounds
 
       # Call recordings
-      - ./recordings:/usr/local/freeswitch/recordings
+      - ./recordings:/usr/local/freeswitch/var/lib/freeswitch/recordings
 
-      # SQLite database & state storage (call registrations, channel states)
-      - ./db:/usr/local/freeswitch/db
+      # SQLite database & state storage
+      - ./db:/usr/local/freeswitch/var/lib/freeswitch/db
 
       # Voicemail and runtime storage
-      - ./storage:/usr/local/freeswitch/storage
+      - ./storage:/usr/local/freeswitch/var/lib/freeswitch/storage
+
+      # Source code directory
+      - ./src:/usr/src

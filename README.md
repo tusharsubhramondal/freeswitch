@@ -62,6 +62,7 @@ docker exec -it freeswitch-learning bash
 
 | Document | Description |
 | :--- | :--- |
+| 📄 **[LEARNING_GUIDE.md](file:///c:/Users/tusha/Desktop/freeswitch/LEARNING_GUIDE.md)** | Step-by-step post-installation guide, network fixes, MicroSIP softphone setup, and test extensions. |
 | 📄 **[DOCKERFILE_DEPENDENCIES.md](file:///c:/Users/tusha/Desktop/freeswitch/DOCKERFILE_DEPENDENCIES.md)** | Full breakdown of every utility, build tool, codec, and database library installed in the `Dockerfile`. |
 | 📄 **[INSTALLATION_GUIDE.md](file:///c:/Users/tusha/Desktop/freeswitch/INSTALLATION_GUIDE.md)** | Comprehensive guide covering dependency compilation (`libks`, `sofia-sip`, `spandsp`), sound prompt setup, and systemd service creation. |
 | 📄 **[MANUAL_INSTALLATION.md](file:///c:/Users/tusha/Desktop/freeswitch/MANUAL_INSTALLATION.md)** | Direct CLI instructions to manually compile and install FreeSWITCH from Git source on Debian 12. |
