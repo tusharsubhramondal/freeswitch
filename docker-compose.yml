@@ -1,5 +1,8 @@
 services:
   freeswitch:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: my-freeswitch-image:latest
     container_name: freeswitch-learning
 

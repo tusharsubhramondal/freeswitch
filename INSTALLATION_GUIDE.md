@@ -330,3 +330,16 @@ fsctl shutdown                      # Gracefully stop the FreeSWITCH server
 4. **`v18_init: too few arguments` in `mod_spandsp`**
    - *Cause*: API function signature change in the latest upstream SpanDSP repository.
    - *Fix*: Comment out `applications/mod_spandsp` in `modules.conf`.
+
+5. **`NO SUITABLE DATABASE INTERFACE IS AVAILABLE TO SERVE 'core-db-dsn'!`**
+   - *Cause*: FreeSWITCH binary was compiled without `--enable-core-odbc-support`, or `pre_load_modules.conf.xml` has missing modules enabled.
+   - *Fix*: Install `unixodbc-dev odbc-mariadb` and compile FreeSWITCH with `./configure --enable-core-odbc-support`.
+
+6. **`undefined symbol: fspr_pool_cleanup_null`**
+   - *Cause*: FreeSWITCH linked against Debian's system `libapr1-dev` instead of its internal custom FSPR (`fspr_*`).
+   - *Fix*: Purge `libapr1-dev` (`apt-get purge -y libapr1-dev`), compile `libs/apr`, and copy `.libs/libapr-1*` to `/usr/lib/x86_64-linux-gnu/`.
+
+7. **`[STATE: 42000 CODE 1118 ERROR: Row size too large (> 65535)]` in MySQL**
+   - *Cause*: FreeSWITCH auto-generated `channels` table has multiple `VARCHAR(4096)` columns, which in `utf8mb4` exceeds MySQL's 65,535-byte InnoDB row limit. FreeSWITCH enters an infinite table-creation loop.
+   - *Fix*: Manually create `channels`, `calls`, `interfaces`, and `tasks` in MySQL using `TEXT` for large columns and `ROW_FORMAT=DYNAMIC`.
+

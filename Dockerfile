@@ -45,5 +45,10 @@ RUN apt-get update && \
     libvorbis-dev \
     libvpx-dev \
     libpq-dev \
+    unixodbc \
+    unixodbc-dev \
+    odbc-mariadb \
+    libmariadb-dev \
+    libmariadb-dev-compat \
     && \
     rm -rf /var/lib/apt/lists/*

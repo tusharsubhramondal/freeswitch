@@ -106,7 +106,123 @@ Docker volume mounts link your Windows project directory to FreeSWITCH inside Li
 
 ---
 
-## 5. Controlling the Container
+---
+
+## 6. MySQL / MariaDB Database Integration via ODBC
+
+Instead of using SQLite, FreeSWITCH can store its core channels, calls, interfaces, and Sofia registrations in MySQL (e.g. XAMPP / phpMyAdmin on Windows).
+
+### 6.1 Networking & ODBC Configuration
+Inside the container, `unixODBC` connects to Windows MySQL via `host.docker.internal`:
+
+```ini
+# /etc/odbc.ini
+[freeswitch-mysql]
+Description = FreeSWITCH MySQL Database
+Driver = MariaDB Unicode
+Server = host.docker.internal
+Port = 3306
+Database = freeswitch
+User = root
+Password = 
+```
+
+### 6.2 FreeSWITCH `switch.conf.xml` Setting:
+```xml
+<param name="core-db-dsn" value="freeswitch-mysql:root:" />
+<param name="odbc-skip-autocommit-flip" value="true" />
+<param name="auto-create-schemas" value="true"/>
+```
+
+---
+
+## 7. Critical Troubleshooting: MySQL / MariaDB Row Size Gotcha (Error 1118)
+
+### The Issue:
+When FreeSWITCH automatically creates tables in MySQL/MariaDB with `utf8mb4` character set, columns with `VARCHAR(4096)` exceed MySQL's maximum row size of 65,535 bytes:
+```text
+[STATE: 42000 CODE 1118 ERROR: Row size too large. The maximum row size for the used table type, not counting BLOBs, is 65535]
+```
+This causes FreeSWITCH to freeze in an infinite restart loop and prevents `mod_event_socket` / `fs_cli` from starting.
+
+### The Fix:
+Create the tables in MySQL using `TEXT` for large payload columns and `ROW_FORMAT=DYNAMIC`:
+
+```sql
+USE freeswitch;
+
+CREATE TABLE IF NOT EXISTS channels (
+   uuid  VARCHAR(255),
+   direction  VARCHAR(32),
+   created  VARCHAR(128),
+   created_epoch  INTEGER,
+   name  VARCHAR(512),
+   state  VARCHAR(64),
+   cid_name  VARCHAR(512),
+   cid_num  VARCHAR(255),
+   ip_addr  VARCHAR(255),
+   dest  VARCHAR(512),
+   application  VARCHAR(128),
+   application_data  TEXT,
+   dialplan VARCHAR(128),
+   context VARCHAR(128),
+   read_codec  VARCHAR(128),
+   read_rate  VARCHAR(32),
+   read_bit_rate  VARCHAR(32),
+   write_codec  VARCHAR(128),
+   write_rate  VARCHAR(32),
+   write_bit_rate  VARCHAR(32),
+   secure VARCHAR(64),
+   hostname VARCHAR(255),
+   presence_id TEXT,
+   presence_data TEXT,
+   accountcode VARCHAR(255),
+   callstate  VARCHAR(64),
+   callee_name  VARCHAR(512),
+   callee_num  VARCHAR(255),
+   callee_direction  VARCHAR(5),
+   call_uuid  VARCHAR(255),
+   sent_callee_name  VARCHAR(512),
+   sent_callee_num  VARCHAR(255),
+   initial_cid_name  VARCHAR(512),
+   initial_cid_num  VARCHAR(255),
+   initial_ip_addr  VARCHAR(255),
+   initial_dest  VARCHAR(512),
+   initial_dialplan  VARCHAR(128),
+   initial_context  VARCHAR(128)
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
+
+CREATE TABLE IF NOT EXISTS calls (
+   call_uuid VARCHAR(255),
+   call_created VARCHAR(128),
+   call_created_epoch INTEGER,
+   caller_uuid VARCHAR(255),
+   callee_uuid VARCHAR(255),
+   hostname VARCHAR(255)
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
+
+CREATE TABLE IF NOT EXISTS interfaces (
+   type VARCHAR(128),
+   name VARCHAR(512),
+   description TEXT,
+   ikey VARCHAR(512),
+   filename TEXT,
+   syntax TEXT,
+   hostname VARCHAR(255)
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
+
+CREATE TABLE IF NOT EXISTS tasks (
+   task_id INTEGER,
+   task_desc TEXT,
+   task_group VARCHAR(512),
+   task_sql_manager INTEGER,
+   hostname VARCHAR(255)
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
+```
+
+---
+
+## 8. Controlling the Container
 
 | Action | PowerShell Command |
 | :--- | :--- |
